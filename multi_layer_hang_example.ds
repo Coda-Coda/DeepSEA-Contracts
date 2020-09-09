@@ -1,0 +1,229 @@
+object signature PausableInterface = {
+  whenPaused : unit -> unit;
+  whenNotPaused : unit -> unit;
+  pause : unit -> unit;
+  unpause : unit -> unit;
+}
+
+object signature OwnableInterface = {
+  onlyOwner : unit -> unit ;
+  transferOwnership : address -> unit
+}
+
+event
+  | OwnershipTransferred (previousOwner : address indexed) (newOwner : address indexed)
+
+
+object Ownable : OwnableInterface {
+  let owner : address := address(0)
+
+  let constructor () =
+    owner := msg_sender    
+
+  let onlyOwner () =
+    let _owner = owner in assert (msg_sender = _owner)
+
+  let transferOwnership(newOwner) =
+    assert (newOwner <> address(0));
+    let _owner = owner in emit OwnershipTransferred(_owner, newOwner);
+    owner := newOwner
+}
+
+event
+  | Pause (x : unit)
+  | Unpause (x : unit)
+
+object Pausable (ownable : OwnableInterface) : PausableInterface  {
+  let paused : bool := false
+
+  let whenPaused () =
+    let _paused = paused in assert (_paused = true)
+
+  let whenNotPaused () =
+    let _paused = paused in assert (_paused = false)
+
+  let pause () =
+    ownable.onlyOwner();
+    paused := true;
+    emit Pause()
+
+  let unpause () =
+    ownable.onlyOwner();
+    paused := false;
+    emit Unpause()
+}
+
+layer OWNABLE : [ { } ] { ownable : OwnableInterface }  = {
+  ownable = Ownable
+}
+
+layer PAUSABLE : [{ ownable : OwnableInterface }]
+                 { pausable : PausableInterface }
+= {
+  pausable = Pausable
+}
+
+object signature IntListInterface = {
+    push : int -> unit;
+    const get : int -> int;
+    set : int * int -> unit;
+    const getLength : unit -> int;
+    reset : unit -> unit;
+    
+}
+
+object IntList : IntListInterface {
+    let listInternal : mapping[int] int := mapping_init
+    let length : int := 0
+
+    let push (val) = 
+        let _length = length in listInternal[_length] := val;
+        let _length = length in length := _length + 1
+
+    let get (index) = 
+        let _length = length in assert(index < _length);
+        listInternal[index]
+
+    let set (index, val) = 
+        let _length = length in assert(index < _length);
+        listInternal[index] := val
+
+    let getLength () =
+        length
+    
+    let reset () = 
+        let _length = length in
+        for i = 0 to _length do
+        begin
+            listInternal[i] := 0
+        end;
+        length := 0
+}
+
+object IntList2 (ownable : OwnableInterface, pausable : PausableInterface) : IntListInterface {
+        let listInternal : mapping[int] int := mapping_init
+    let length : int := 0
+
+    let push (val) = 
+        pausable.whenNotPaused();
+        ownable.onlyOwner();
+        let _length = length in listInternal[_length] := val;
+        let _length = length in length := _length + 1
+
+    let get (index) = 
+        let _length = length in assert(index < _length);
+        listInternal[index]
+
+    let set (index, val) = 
+        let _length = length in assert(index < _length);
+        listInternal[index] := val
+
+    let getLength () =
+        length
+    
+    let reset () = 
+        let _length = length in
+        for i = 0 to _length do
+        begin
+            listInternal[i] := 0
+        end;
+        length := 0
+}
+
+layer signature HelpersSig = { 
+    list1 : IntListInterface ;
+    list2 : IntListInterface
+}
+
+layer HELPERS : [ ] HelpersSig  = {
+  list1 = IntList;
+  list2 = IntList2
+}
+
+object signature TopInterface = {
+  add1 : int -> unit;
+  const get1 : int -> int;
+  reset1 : unit -> unit;
+  add2 : int -> unit;
+  const get2 : int -> int;
+  reset2 : unit -> unit
+}
+
+object Top (list1 : IntListInterface, list2 : IntListInterface, pausable : PausableInterface, ownable : OwnableInterface) : TopInterface  {
+    let add1 (x) =
+        pausable.whenNotPaused();
+        list1.push(x)
+
+    let get1 (i) =
+        list1.get(i)
+
+    let reset1 () =
+        list1.reset()
+
+    let add2 (x) =
+        list2.push(x)
+
+    let get2 (i) =
+        list2.get(i)
+
+    let reset2 () =
+        list2.reset()
+
+
+}
+
+object signature DummyInterface = {
+    const dum : unit -> int
+}
+
+object Dummy : DummyInterface {
+    let dum () = 
+        42
+}
+
+layer signature TopSig = { 
+    top : TopInterface
+}
+
+
+
+layer TOP : [ { list1 : IntListInterface ; list2 : IntListInterface ; ownable : OwnableInterface ; pausable : PausableInterface ; } ]
+    TopSig
+= {
+  top = Top;
+  dummy = Dummy
+  
+}
+
+(* --- *)
+
+object signature TopTopInterface = {
+  const addtoptop : unit -> int
+}
+
+object TopTop : TopTopInterface  {
+    let addtoptop () = 
+        42
+
+}
+
+layer signature TopTopSig = { 
+    toptop : TopTopInterface
+}
+
+
+layer TOPTOP : [ { top : TopInterface } ]
+    TopTopSig
+= {
+  toptop = TopTop
+}
+
+(* --- *)
+
+layer CONTRACT = TOPTOP @ TOP @ HELPERS @ PAUSABLE @ OWNABLE
+
+(*
+layer L = {
+    o = IntList
+}
+*)

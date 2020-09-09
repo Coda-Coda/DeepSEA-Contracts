@@ -1,0 +1,32 @@
+object signature IntListInterface = {
+    push : int -> unit;
+    const get : int -> int;
+    set : int * int -> unit;
+    const getLength : unit -> int
+}
+
+object IntList : IntListInterface {
+
+(* Changing listInternal to list causes it not to compile. *)
+
+    let listInternal : mapping[int] int := mapping_init
+    let length : int := 0 (* Changing here *)
+
+    let push (val) = 
+        let _length = length in listInternal[_length] := val; (* And here *)
+        let _length = length in length := _length + 1
+
+    let get (index) = 
+        42
+
+    let set (index, val) = 
+        ()
+
+    let getLength () =
+        length
+    
+}
+
+layer L = {
+    o = IntList
+}

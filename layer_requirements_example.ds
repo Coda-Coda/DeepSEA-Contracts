@@ -1,0 +1,53 @@
+(* Second object in a layer is checked differently to the first object in a layer (less strictly). *)
+
+object signature Layer2Interface = {
+  const getVal : unit -> int
+}
+
+object signature Layer1Interface = {
+  const getVal : unit -> int
+}
+
+object Layer2 : Layer2Interface {
+  let getVal() = 
+    2
+}
+
+object Layer1Standalone : Layer1Interface {
+  let getVal() = 
+    1
+}
+
+object Layer1DependsOn2 (layer2 : Layer2Interface) : Layer1Interface {
+  let getVal() = 
+    layer2.getVal()
+}
+
+layer LAYER2 : [ ]
+                 { layer2 : Layer2Interface }
+= {
+  layer2 = Layer2
+}
+
+(* Does compile - expected *)
+layer LAYER1_VERSION1 : [ { layer2 : Layer2Interface } ] { layer1B : Layer1Interface }  = {
+  layer1B = Layer1DependsOn2;
+  layer1A = Layer1Standalone
+}
+
+(* Does compile - unexpected *)
+layer LAYER1_VERSION2 : [ ] { layer1A : Layer1Interface }  = {
+  layer1A = Layer1Standalone;
+  layer1B = Layer1DependsOn2
+}
+
+(* Does not compile - expected *)
+(*
+layer LAYER1_VERSION3 : [ ] { layer1A : Layer1Interface }  = {
+  layer1B = Layer1DependsOn2;
+  layer1A = Layer1Standalone
+  
+}
+*)
+
+layer CONTRACT = LAYER1_VERSION2 @ LAYER2

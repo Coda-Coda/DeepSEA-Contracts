@@ -1,0 +1,67 @@
+(* With descendants with the same name, grandchildren objects are masked by children objects. No error occurs. *)
+
+object signature Layer4Interface = {
+  const getVal : unit -> int
+}
+
+object signature Layer3Interface = {
+  const getVal : unit -> int
+}
+
+object signature Layer2Interface = {
+  const getVal : unit -> int
+}
+
+object signature Layer1Interface = {
+  const getVal : unit -> int
+}
+
+object Layer4 : Layer4Interface {
+  let getVal() = 
+    4
+}
+
+object Layer3 : Layer3Interface {
+  let getVal() = 
+    3
+}
+
+object Layer2 (layer4 : Layer4Interface) : Layer2Interface {
+  let getVal() = 
+    layer4.getVal() (* Point A (referenced below) *)
+}
+
+object Layer2Standalone : Layer2Interface {
+  let getVal() = 
+    2
+}
+
+object Layer1 (layer2 : Layer2Interface) : Layer1Interface {
+  let getVal() =
+      layer2.getVal()
+}
+
+layer LAYER4 : [ ] { layer4 : Layer4Interface }
+= {
+  layer4 = Layer4
+}
+
+(* Here LAYER3 defines layer4, which is already defined in LAYER4 above.
+   Back at Point A (indicated above) Layer4 is masked by Layer3, as can be seen by contract.getVal() returning 3.
+   Changing layer4 to layer3 in both places below would result in contract.getVal() returning 4. *)
+layer LAYER3 : [ ] { layer4 : Layer3Interface }
+= {
+  layer4 = Layer3
+}
+
+layer LAYER2 : [ ] { layer2 : Layer2Interface }
+= {
+  layer2Standalone = Layer2Standalone ;
+  layer2 = Layer2
+}
+
+layer LAYER1 : [ { layer2 : Layer2Interface } ] { layer1 : Layer1Interface }  = {
+  layer1 = Layer1
+}
+
+layer CONTRACT = LAYER1 @ LAYER2 @ LAYER3 @ LAYER4

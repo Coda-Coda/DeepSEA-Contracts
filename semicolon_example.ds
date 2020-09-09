@@ -1,0 +1,22 @@
+object signature HelloInt = {
+    setHello : int -> unit;
+    const getHello : int -> int
+}
+
+object Contract : HelloInt {
+    let stored : array[3] int := array_init
+    let stored2 : array[3] int := array_init
+    let upTo : int := 0
+
+    let setHello (num) = 
+        let _upTo = upTo in stored[_upTo] := num;
+        let _upTo = upTo in upTo := _upTo + 1 (* Adding a semi-colon at the end of this line causes a parser error. *)
+        
+
+    let getHello (index) = 
+        stored[index]
+}
+
+layer L = {
+    o = Contract
+}
