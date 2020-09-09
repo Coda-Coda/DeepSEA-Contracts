@@ -1,0 +1,85 @@
+(* Demonstrates that "unlike using integers directly the typechecker will enforce that all possible values of the type are handled" (DeepSEA language reference/Algebraic types) is only caught by compiling to Coq (and compiling the .v files) and not by the bytecode compilation pathway. *)
+
+(* 
+This file includes a non-exhaustive pattern matching case.
+Firstly, no compilation error occurs. Secondly, the following occurs:
+
+
+|> contract.echo(0)
+0
+|> contract.echo(1)
+1
+|> contract.echo(2)
+1
+
+Returning `1` in the last case seems to be how essentially undefined behaviour is handled.
+
+Although, I think the Coq pipeline catches the error, as indicated below:
+
+Error:
+In environment
+memModelOps : MemoryModelOps mem
+global_abdata : GlobalAbData init_global_abstract_data
+                  global_low_level_invariant
+CTXT_prf : Layer_TAGS_Context_prf
+HM : HyperMem
+The term "Tags_convertFromTag_match_body_0" has type
+ "cmd_constr (mk_hyper_type_pair tint_Z32)" while it is expected to have type
+ "machine_env".
+
+*)
+
+type Tag [[int]] =
+  | TAG_ZERO   [[= 0]]
+  | TAG_ONE    [[= 1]]
+  | TAG_TWO    [[= 2]]
+
+object signature TagsSig = {
+  const convertToTag : int -> Tag;
+  const convertFromTag : Tag -> int
+}
+object Tags : TagsSig {
+  let convertToTag(tagInt) = 
+    if (tagInt = 0) then
+      TAG_ZERO
+    else
+      begin
+        if (tagInt = 1) then
+          TAG_ONE
+        else
+          begin
+            if (tagInt = 2) then
+              TAG_TWO
+            else
+              fail
+          end
+      end
+  let convertFromTag(tag) = 
+   match tag with
+        | TAG_ZERO =>
+           0
+        | TAG_ONE =>
+           1
+        (* Intentionally missing TAG_TWO case. *)
+    end
+}
+
+object signature ContractSig = {
+  const echo : int -> int
+}
+object Contract (tags : TagsSig) : ContractSig {
+  let echo (i) = 
+      let tag = tags.convertToTag(i) in
+      tags.convertFromTag(tag)
+}
+
+layer TAGS  = {
+    tags = Tags
+}
+
+layer TESTTAGS : [ {tags : TagsSig } ]  {}  = {
+    o = Contract
+}
+
+layer CONTRACT = TESTTAGS @ TAGS
+
